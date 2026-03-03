@@ -24,7 +24,7 @@ class _BleScreenState extends State<BleScreen> {
         if (result.device.platformName == "HMSoft") {
           await FlutterBluePlus.stopScan();
 
-            await result.device.connect();
+            
           setState(() {
             status = "Connected to ${result.device.platformName}";
             isScanning = false;
