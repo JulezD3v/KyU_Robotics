@@ -24,7 +24,7 @@ class _BleScreenState extends State<BleScreen> {
         if (result.device.platformName == "HMSoft") {
           await FlutterBluePlus.stopScan();
 
-            
+            //await result.device.connect();
           setState(() {
             status = "Connected to ${result.device.platformName}";
             isScanning = false;
@@ -52,37 +52,7 @@ class _BleScreenState extends State<BleScreen> {
         title: const Text("BLE Connect"),
         backgroundColor: Colors.green,
       ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-
-            Text(
-              status,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-
-            const SizedBox(height: 30),
-
-            ElevatedButton(
-              onPressed: isScanning ? null : scanAndConnect,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 40,
-                  vertical: 15,
-                ),
-              ),
-              child: Text(
-                isScanning ? "Scanning..." : "Connect to BLE",
-              ),
-            ),
-          ],
-        ),
-      ),
+      
     );
   }
 }
