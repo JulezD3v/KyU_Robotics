@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:kyu_robotics/Controller/controller.dart'; // assuming this is where BleScreen lives
 
 class Splashscreen extends StatefulWidget {
   const Splashscreen({super.key});
@@ -7,41 +8,80 @@ class Splashscreen extends StatefulWidget {
   State<Splashscreen> createState() => _SplashscreenState();
 }
 
-class _SplashscreenState extends State<Splashscreen> {
+class _SplashscreenState extends State<Splashscreen>
+    with SingleTickerProviderStateMixin {
   
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 10),
+    );
+
+    // Just forward it — no need to re-assign _controller
+    _controller.forward();
+
+    _controller.addStatusListener((status) {
+      if (status == AnimationStatus.completed) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const BleScreen()),
+        );
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFEDEFF0), // Light grey background
+      backgroundColor: const Color.fromARGB(255, 252, 253, 251),
       body: SafeArea(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-
             /// ===== TOP SECTION =====
             Expanded(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-
                   /// Circular Container with Shadow
                   Container(
                     height: 180,
                     width: 180,
                     decoration: BoxDecoration(
-                      color: Colors.white,
                       shape: BoxShape.circle,
+                      // Light source from top-left
+                      gradient: const LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          Colors.white, // strong highlight
+                          Color(0xFFE0E0E0), // mid tone
+                          Color(0xFFBDBDBD), // darker edge
+                        ],
+                      ),
                       boxShadow: [
+                        // Bottom-right shadow (depth)
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
-                          blurRadius: 25,
-                          spreadRadius: 5,
+                          color: Colors.black.withOpacity(0.25),
+                          offset: const Offset(12, 12),
+                          blurRadius: 20,
+                        ),
+                        // Top-left highlight shadow (subtle lift)
+                        BoxShadow(
+                          color: Colors.white.withOpacity(0.9),
+                          offset: const Offset(-8, -8),
+                          blurRadius: 20,
                         ),
                       ],
                     ),
                     child: const Center(
                       child: Icon(
-                        Icons.precision_manufacturing, // Robot-like icon
+                        Icons.precision_manufacturing,
                         color: Colors.green,
                         size: 80,
                       ),
@@ -60,73 +100,52 @@ class _SplashscreenState extends State<Splashscreen> {
                     ),
                   ),
 
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 10),
 
                   /// Small Indicator Lines
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      _line(isActive: false),
-                      const SizedBox(width: 8),
-                      _line(isActive: true),
-                      const SizedBox(width: 8),
-                      _line(isActive: false),
+                      Text(
+                        "INNOVATION IN MOTION",
+                        style: TextStyle(fontSize: 12, color: Colors.green),
+                      ),
                     ],
                   ),
                 ],
               ),
             ),
 
-            /// ===== BOTTOM SECTION =====
+            const SizedBox(height: 8),
+
             Padding(
-              padding: const EdgeInsets.only(bottom: 40),
+              padding: const EdgeInsets.only(bottom: 30),
               child: Column(
                 children: [
-
-                  /// University Logo Circle
-                  Container(
-                    height: 100,
-                    width: 100,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
-                          blurRadius: 20,
-                          spreadRadius: 3,
-                        ),
-                      ],
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(15.0),
-                      child: Image.asset(
-                        "assets/kyu_logo.png", // Add logo to assets
-                        fit: BoxFit.contain,
-                      ),
+                  /// Loading Bar
+                  SizedBox(
+                    width: 120,
+                    child: AnimatedBuilder(
+                      animation: _controller,
+                      builder: (context, child) {
+                        return LinearProgressIndicator(
+                          minHeight: 4,
+                          backgroundColor: Colors.grey.shade300,
+                          color: Colors.green,
+                          // Optional: make it actually animate with value
+                          // value: _controller.value,
+                        );
+                      },
                     ),
                   ),
 
                   const SizedBox(height: 20),
 
-                  const Text(
-                    "IN PARTNERSHIP WITH",
-                    style: TextStyle(
-                      fontSize: 14,
-                      letterSpacing: 1.5,
-                      color: Colors.green,
-                    ),
-                  ),
-
-                  const SizedBox(height: 8),
-
-                  const Text(
-                    "Kirinyaga University",
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.green,
-                    ),
+                  /// Small Logo (no container)
+                  Image.asset(
+                    "assets/schoolLogo.png",
+                    height: 40, // small
+                    fit: BoxFit.contain,
                   ),
                 ],
               ),
@@ -137,15 +156,9 @@ class _SplashscreenState extends State<Splashscreen> {
     );
   }
 
-  /// Indicator Line Widget
-  static Widget _line({required bool isActive}) {
-    return Container(
-      height: 6,
-      width: 40,
-      decoration: BoxDecoration(
-        color: isActive ? Colors.green : Colors.green.withOpacity(0.3),
-        borderRadius: BorderRadius.circular(10),
-      ),
-    );
+  @override
+  void dispose() {
+    _controller.dispose(); // Important: always dispose controllers!
+    super.dispose();
   }
 }
