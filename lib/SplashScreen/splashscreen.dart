@@ -19,7 +19,7 @@ class _SplashscreenState extends State<Splashscreen>
 
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 10),
+      duration: const Duration(seconds: 8),
     );
 
     // Just forward it — no need to re-assign _controller
@@ -129,11 +129,10 @@ class _SplashscreenState extends State<Splashscreen>
                       animation: _controller,
                       builder: (context, child) {
                         return LinearProgressIndicator(
+                          value: _controller.value,
                           minHeight: 4,
                           backgroundColor: Colors.grey.shade300,
                           color: Colors.green,
-                          // Optional: make it actually animate with value
-                          // value: _controller.value,
                         );
                       },
                     ),
