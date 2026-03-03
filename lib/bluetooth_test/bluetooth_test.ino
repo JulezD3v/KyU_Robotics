@@ -1,15 +1,13 @@
 void setup() {
-  Serial.begin(9600);   // Must match Bluetooth baud rate
+  Serial.begin(9600);   
   delay(1000);
   Serial.println("Bluetooth Ready");
 }
 
 void loop() {
 
-  // Send test message every 2 seconds
   Serial.println("Hello from Arduino");
 
-  // If something is received from phone
   if (Serial.available()) {
     char c = Serial.read();
     Serial.print("Received: ");
@@ -18,3 +16,5 @@ void loop() {
 
   delay(2000);
 }
+// test this on arduino IDE, if you are using HM-10, its a BLE, use a third party app to detect it and receive the messege
+//Try Serial BluetooTh Terminal

@@ -156,4 +156,4 @@ class _BluetoothTestPageState extends State<BluetoothTestPage> {
       ),
     );
   }
-}r
+}
