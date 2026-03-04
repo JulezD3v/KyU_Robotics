@@ -1,6 +1,8 @@
 # kyu_robotics
+Commands used are from the BLEtest_take2.ino
+Movements have been well documented
+Test the bluetooth module using Serial Bluetooth Terminal app(using HMSoft)
 
-A new Flutter project.
 
 ## Getting Started
 

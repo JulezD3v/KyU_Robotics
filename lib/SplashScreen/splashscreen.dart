@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:kyu_robotics/Controller/controller.dart'; // assuming this is where BleScreen lives
+import 'package:kyu_robotics/Controller/ble_tester.dart';
+import 'package:kyu_robotics/Controller/mycontroller.dart'; // assuming this is where BleScreen lives
 
 class Splashscreen extends StatefulWidget {
   const Splashscreen({super.key});
@@ -29,7 +30,7 @@ class _SplashscreenState extends State<Splashscreen>
       if (status == AnimationStatus.completed) {
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (_) => const BleScreen()),
+          MaterialPageRoute(builder: (_) => BleScreen()),
         );
       }
     });
