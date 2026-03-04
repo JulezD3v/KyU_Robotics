@@ -119,38 +119,34 @@ class _BleScreenState extends State<BleScreen> {
     }
   }
  
-  Future<void> _connectToDevice(BluetoothDevice device) async {
-    _setStatus("Connecting…");
+ void _connectToDevice(BluetoothDevice device) {
+  _setStatus("Waiting for device to connect...");
  
-    try {
-      // Connect with autoConnect=false for immediate connection attempt
-      await device.connect(autoConnect: false, timeout: const Duration(seconds: 10));
-    } catch (e) {
-      _setStatus("Connection failed: $e");
-      setState(() => isScanning = false);
-      return;
-    }
- 
-    connectedDevice = device;
- 
-    // Listen for disconnection
-    _connectionSubscription = device.connectionState.listen((state) {
-      if (state == BluetoothConnectionState.disconnected) {
-        if (mounted) {
-          setState(() {
-            isConnected = false;
-            isScanning = false;
-            status = "Disconnected";
-            txCharacteristic = null;
-          });
-        }
+  _connectionSubscription = device.connectionState.listen((state) async {
+    if (state == BluetoothConnectionState.connected) {
+      connectedDevice = device;
+      await _discoverServices(device);
+    } else if (state == BluetoothConnectionState.disconnected) {
+      if (mounted) {
+        setState(() {
+          isConnected = false;
+          isScanning = false;
+          status = "Disconnected";
+          txCharacteristic = null;
+        });
       }
-    });
+    }
+  });
  
-    // Discover services to find the HM-10 characteristic
-    await _discoverServices(device);
-  }
- 
+ device.connect(autoConnect: false).timeout(
+    const Duration(seconds: 10),
+    onTimeout: () {
+      device.disconnect();
+      _setStatus("Connection timed out");
+      setState(() => isScanning = false);
+    },
+  );
+}
   Future<void> _discoverServices(BluetoothDevice device) async {
     _setStatus("Discovering services…");
  
