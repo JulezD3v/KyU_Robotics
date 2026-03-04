@@ -24,9 +24,8 @@ class _BleScreenState extends State<BleScreen> {
   StreamSubscription? _connectionSubscription;
  
   // HM-10 UUIDs (standard firmware defaults)
-  // HM-10 UUIDs (Now matching flutter_blue_plus v2.2.x format)
-  static const String _hm10ServiceUUID    = "ffe0";
-  static const String _hm10CharUUID       = "ffe1";
+  static const String _hm10ServiceUUID    = "0000ffe0-0000-1000-8000-00805f9b34fb";
+  static const String _hm10CharUUID       = "0000ffe1-0000-1000-8000-00805f9b34fb";
   static const String _targetDeviceName   = "HMSoft"; // Change if your module differs
  
   // ── Lifecycle ──────────────────────────────────────────────────────────────
@@ -144,7 +143,7 @@ class _BleScreenState extends State<BleScreen> {
       // Attempt connection. 
       // NOTE: On some HM-10 modules, flutter requests an MTU of 512 which the module rejects.
       // If the error persists, try passing `mtu: null` instead to skip MTU negotiation.
-      await device.connect(autoConnect: false, license:License.free, timeout: const Duration(seconds: 10));
+      await device.connect(autoConnect: false, timeout: const Duration(seconds: 10),);
     } catch (e) {
       _setStatus("Connection failed: $e");
       if (mounted) setState(() => isScanning = false);
@@ -203,13 +202,14 @@ class _BleScreenState extends State<BleScreen> {
         }
       }
  
-      // Service/char not found – wrong firmware or UUID mismatch
       _setStatus("HM-10 service not found on device");
       await device.disconnect();
     } catch (e) {
       _setStatus("Service discovery failed: $e");
     }
   }
+ 
+  /// Send a single-character command to the robotic car (e.g. 'F', 'B', 'L', 'R', 'S')
   Future<void> sendCommand(String command) async {
     if (txCharacteristic == null || !isConnected) {
       _setStatus("Not connected");
