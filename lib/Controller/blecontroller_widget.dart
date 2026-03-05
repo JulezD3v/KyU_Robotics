@@ -228,12 +228,12 @@ class _BleScreenState extends State<BleScreen> {
 
 //Increase decrease speed
   Future<void> increaseSpeed() async {
-  await sendCommand("I");  // or "+" if your Arduino uses that
+  await sendCommand("I");  
   _setStatus("Speed increased");
 }
 
-Future<void> decreaseSpeed() async {
-  await sendCommand("D");  // or "-" if your Arduino uses that
+  Future<void> decreaseSpeed() async {
+  await sendCommand("D");  
   _setStatus("Speed decreased");
 }
  
@@ -245,120 +245,41 @@ Future<void> decreaseSpeed() async {
       txCharacteristic = null;
     });
   }
- 
-  // ── UI ─────────────────────────────────────────────────────────────────────
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("BLE Robot Control"),
-        backgroundColor: Colors.green,
-        actions: [
-          if (isConnected)
-            IconButton(
-              icon: const Icon(Icons.bluetooth_disabled),
-              tooltip: "Disconnect",
-              onPressed: disconnect,
-            ),
-        ],
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(24),
+      appBar: AppBar(title: const Text("BLE Controller")),
+      body: Center(
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Card(
-              color: isConnected ? Colors.green.shade50 : Colors.grey.shade100,
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  children: [
-                    Icon(
-                      isConnected ? Icons.bluetooth_connected : Icons.bluetooth_disabled,
-                      color: isConnected ? Colors.green : Colors.grey,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        status,
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: isConnected ? Colors.green.shade800 : Colors.grey.shade700,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                    if (isScanning) const SizedBox(
-                      width: 20, height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
-                  ],
-                ),
-              ),
+            Text(status),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: isConnected ? null : scanAndConnect,
+              child: Text(isConnected ? "Connected" : "Scan & Connect"),
             ),
- 
-            const SizedBox(height: 24),
- 
-            if (!isConnected)
-              ElevatedButton.icon(
-                onPressed: isScanning ? null : scanAndConnect,
-                icon: const Icon(Icons.search),
-                label: Text(isScanning ? "Scanning…" : "Scan & Connect"),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                ),
-              ),
- 
-            const SizedBox(height: 32),
- 
             if (isConnected) ...[
-              const Text(
-                "Controls",
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              const SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: increaseSpeed,
+                child: const Text("Increase Speed"),
               ),
-              const SizedBox(height: 16),
-              _buildDpad(),
+              const SizedBox(height: 10),
+              ElevatedButton(
+                onPressed: decreaseSpeed,
+                child: const Text("Decrease Speed"),
+              ),
+              const SizedBox(height: 10),
+              ElevatedButton(
+                onPressed: disconnect,
+                child: const Text("Disconnect"),
+              ),
             ],
           ],
         ),
       ),
     );
   }
- 
-  Widget _buildDpad() {
-    return Column(
-      children: [
-        _directionButton("▲ Forward", "F"),
-        const SizedBox(height: 8),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            _directionButton("◀ Left", "L"),
-            const SizedBox(width: 8),
-            _directionButton("■ Stop", "S", color: Colors.red),
-            const SizedBox(width: 8),
-            _directionButton("Right ▶", "R"),
-          ],
-        ),
-        const SizedBox(height: 8),
-        _directionButton("▼ Backward", "B"),
-      ],
-    );
-  }
- 
-  Widget _directionButton(String label, String command, {Color? color}) {
-    return ElevatedButton(
-      onPressed: () => sendCommand(command),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: color ?? Colors.green,
-        foregroundColor: Colors.white,
-        minimumSize: const Size(110, 50),
-      ),
-      child: Text(label),
-    );
-  }
 }
- 

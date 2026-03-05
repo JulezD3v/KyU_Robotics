@@ -18,6 +18,9 @@ class _ControllerState extends State<Controller> {
   bool stopActive = false;
   bool startHighlight = false;
   bool stopHighlight = false;
+  bool isConnected = false;
+  
+
 
   @override
   Widget build(BuildContext context) {
@@ -35,21 +38,25 @@ class _ControllerState extends State<Controller> {
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: const [
-                    Icon(Icons.arrow_back_ios_new),
-                    Text(
+                  children: [
+                    const Icon(Icons.arrow_back_ios_new),
+                    const Text(
                       "KyU Robotics Team",
                       style: TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    Icon(Icons.more_horiz),
+                    Image.asset(
+                "assets/schoolLogo.png",
+                height: 40, // small
+                fit: BoxFit.contain,
+              ),
                   ],
                 ),
               ),
 
-              const SizedBox(height: 20),
+              const SizedBox(height: 16),
 
               // Connected Card
               SoftBoxButton(
@@ -61,7 +68,7 @@ class _ControllerState extends State<Controller> {
                 child: Column(
                   children: [
                     Text(
-                      "CONNECT",
+                      "BLUETOOTH CONNECTED",
                       style: TextStyle(
                         color: AppColors.primaryGreen,
                         fontWeight: FontWeight.bold,
@@ -74,10 +81,11 @@ class _ControllerState extends State<Controller> {
                   ],
                 ),
               ),
-              const SizedBox(height: 40),
+              
+              const SizedBox(height: 35),
 
-              // Circular Controller
-             DirectionalControl(),
+              // Controller
+             DirectionalControl(), // the circle
               const SizedBox(height: 40),
 
               // Stop and switch to camera
@@ -127,12 +135,17 @@ class _ControllerState extends State<Controller> {
       child: ActionCard(
         title: "Increase",
         icon: Icons.electric_bolt_rounded,
-        highlight: startHighlight,
+        highlight: true,
         onTap: () {
-          setState(() {
-            startHighlight = !startHighlight;
-          });
-        },
+    if (isConnected) {
+      increaseSpeed();
+    } else {
+      // optional: show snackbar or update status
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Not connected")),
+      );
+    }
+  },
       ),
     ),
 
@@ -166,38 +179,3 @@ class _ControllerState extends State<Controller> {
     );
   }
 }
-
-Widget _buildArrowButton(IconData icon) {
-    return GestureDetector(
-      onTap: () {
-        // Add your navigation/zoom logic here
-        print("Arrow ${icon.toString()} pressed");
-      },
-      child: Container(
-        width: 56,
-        height: 56,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: AppColors.bgColor,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.white.withOpacity(0.7),
-              offset: const Offset(-4, -4),
-              blurRadius: 8,
-            ),
-            BoxShadow(
-              color: Colors.black.withOpacity(0.15),
-              offset: const Offset(4, 4),
-              blurRadius: 8,
-            ),
-          ],
-        ),
-        child: Icon(
-          icon,
-          size: 32,
-          color: AppColors.primaryGreen.withOpacity(0.9),
-        ),
-      ),
-    );
-  }
-
