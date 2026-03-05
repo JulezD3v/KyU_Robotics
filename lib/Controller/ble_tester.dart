@@ -338,7 +338,7 @@ Future<void> decreaseSpeed() async {
           children: [
             _directionButton("◀ Left", "L"),
             const SizedBox(width: 8),
-            _directionButton("■ Stop", "S", color: Colors.red),
+            _directionButton("■ Stop", "S", color: const Color.fromARGB(255, 218, 64, 53)),
             const SizedBox(width: 8),
             _directionButton("Right ▶", "R"),
           ],

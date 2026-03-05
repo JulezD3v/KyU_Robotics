@@ -1,285 +1,188 @@
+// lib/Controller/mycontroller.dart
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
- 
-class BleScreen extends StatefulWidget {
-  const BleScreen({super.key});
- 
-  @override
-  State<BleScreen> createState() => _BleScreenState();
-}
- 
-class _BleScreenState extends State<BleScreen> {
-  // ── State ──────────────────────────────────────────────────────────────────
+
+class MyBleController extends ChangeNotifier {
+  // ── Public observable state ──
   String status = "Not Connected";
   bool isScanning = false;
   bool isConnected = false;
- 
-  BluetoothDevice? connectedDevice;
-  BluetoothCharacteristic? txCharacteristic; // HM-10 uses same char for TX/RX
- 
-  StreamSubscription? scanSubscription;
-  StreamSubscription? connectionSubscription;
- 
-  // HM-10 UUIDs (standard firmware defaults)
-  // HM-10 UUIDs (Now matching flutter_blue_plus v2.2.x format)
-  static const String _hm10ServiceUUID    = "ffe0";
-  static const String _hm10CharUUID       = "ffe1";
-  static const String _targetDeviceName   = "HMSoft"; // Change if your module differs
- 
-  // ── Lifecycle ──────────────────────────────────────────────────────────────
-  @override
-  void dispose() {
-    scanSubscription?.cancel();
-    connectionSubscription?.cancel();
-    connectedDevice?.disconnect();
-    super.dispose();
+
+  // ── Private BLE fields ──
+  BluetoothDevice? _connectedDevice;
+  BluetoothCharacteristic? _txCharacteristic;
+
+  StreamSubscription? _scanSub;
+  StreamSubscription? _connSub;
+
+  static const String serviceUUID = "ffe0";
+  static const String charUUID   = "ffe1";
+  static const String targetName = "HMSoft"; // ← change if different
+
+  // ── Public API for UI to call ──
+
+  Future<void> connect() => scanAndConnect();
+
+  Future<void> disconnect() async {
+    await _connectedDevice?.disconnect();
+    _updateState(false, "Disconnected");
   }
- 
-  // ── Permissions ────────────────────────────────────────────────────────────
+
+  Future<void> sendCommand(String cmd) async {
+    if (_txCharacteristic == null || !isConnected) {
+      _updateState(isConnected, "Not connected");
+      return;
+    }
+    try {
+      await _txCharacteristic!.write(
+        utf8.encode(cmd),
+        withoutResponse: _txCharacteristic!.properties.writeWithoutResponse,
+      );
+      debugPrint("Sent → $cmd");
+    } catch (e) {
+      debugPrint("Send error: $e");
+    }
+  }
+
+  Future<void> increaseSpeed() async {
+    await sendCommand("I");
+    _updateState(isConnected, "Speed ↑");
+  }
+
+  Future<void> decreaseSpeed() async {
+    await sendCommand("D");
+    _updateState(isConnected, "Speed ↓");
+  }
+
+  // ── Internal logic (same as before, just cleaned a bit) ──
+
   Future<bool> _requestPermissions() async {
-    final statuses = await [
+    var statuses = await [
       Permission.bluetoothScan,
       Permission.bluetoothConnect,
       Permission.locationWhenInUse,
     ].request();
- 
-    final allGranted = statuses.values.every(
-      (s) => s == PermissionStatus.granted,
-    );
- 
-    if (!allGranted) {
-      _setStatus("Permissions denied – cannot scan");
-    }
-    return allGranted;
-  }
- 
-  // ── BLE helpers ────────────────────────────────────────────────────────────
-  void _setStatus(String msg) {
-    if (mounted) setState(() => status = msg);
-  }
- 
-  Future<void> scanAndConnect() async {
-    // 1. Permissions first
-    if (!await _requestPermissions()) return;
- 
-    // 2. Make sure adapter is on (adapterState behaves like BehaviorSubject, so .first is fine)
-    final adapterState = await FlutterBluePlus.adapterState.first;
-    if (adapterState != BluetoothAdapterState.on) {
-      _setStatus("Bluetooth is OFF – please enable it");
-      return;
-    }
- 
-    // 3. Cleanup previous scans and subscriptions
-    await scanSubscription?.cancel();
-    scanSubscription = null;
-    await FlutterBluePlus.stopScan();
- 
-    setState(() {
-      isScanning = true;
-      status = "Scanning…";
-    });
-    
-    // Flag to prevent multiple connection attempts
-    bool deviceFound = false;
- 
-    // 4. Listen BEFORE starting scan to avoid missing early results
-    scanSubscription = FlutterBluePlus.scanResults.listen(
-      (results) {
-        for (final result in results) {
-          final name = result.device.platformName;
-          
-          if (name == _targetDeviceName) {
-            // FIX 1: Immediately flag and cancel subscription. 
-            // This prevents the listener from triggering multiple times and firing off multiple 
-            // _connectToDevice requests, which causes device.connect() to crash.
-            if (deviceFound) return;
-            deviceFound = true;
-            
-            debugPrint("Found: $name  RSSI: ${result.rssi}");
-            
-            scanSubscription?.cancel();
-            scanSubscription = null;
-            
-            FlutterBluePlus.stopScan();
-            _connectToDevice(result.device);
-            return;
-          }
-        }
-      },
-      onError: (e) => _setStatus("Scan error: $e"),
-    );
- 
-    // 5. Start scan
-    await FlutterBluePlus.startScan(
-      timeout: const Duration(seconds: 8),
-    );
- 
-    // 6. After timeout, check if we found anything
-    await Future.delayed(const Duration(seconds: 9));
-    if (!deviceFound && mounted && isScanning && !isConnected) {
-      setState(() {
-        status = "Device '$_targetDeviceName' not found";
-        isScanning = false;
-      });
-    }
-  }
- 
-  Future<void> _connectToDevice(BluetoothDevice device) async {
-    _setStatus("Connecting…");
-    
-    // FIX 3: Cancel any lingering stream subscriptions for old connection attempts
-    await connectionSubscription?.cancel();
 
-    try {
-      // FIX 2: Defensive Disconnect. Android very frequently holds onto zombie GATT 
-      // connections from previous testing sessions. 
-      await device.disconnect();
-      
-      // Delay slightly so the OS Bluetooth stack can register the disconnect
-      await Future.delayed(const Duration(milliseconds: 300));
-      
-      // Attempt connection. 
-      // NOTE: On some HM-10 modules, flutter requests an MTU of 512 which the module rejects.
-      // If the error persists, try passing `mtu: null` instead to skip MTU negotiation.
-      await device.connect(autoConnect: false, license:License.free, timeout: const Duration(seconds: 10));
-    } catch (e) {
-      _setStatus("Connection failed: $e");
-      if (mounted) setState(() => isScanning = false);
+    return statuses.values.every((s) => s.isGranted);
+  }
+
+  Future<void> scanAndConnect() async {
+    if (!await _requestPermissions()) {
+      _updateState(false, "Permissions denied");
       return;
     }
- 
-    connectedDevice = device;
- 
-    // Listen for disconnection
-    connectionSubscription = device.connectionState.listen((state) {
-      if (state == BluetoothConnectionState.disconnected) {
-        if (mounted) {
-          setState(() {
-            isConnected = false;
-            isScanning = false;
-            status = "Disconnected";
-            txCharacteristic = null;
-          });
+
+    var adapterState = await FlutterBluePlus.adapterState.first;
+    if (adapterState != BluetoothAdapterState.on) {
+      _updateState(false, "Bluetooth OFF");
+      return;
+    }
+
+    await _scanSub?.cancel();
+    _scanSub = null;
+    await FlutterBluePlus.stopScan();
+
+    isScanning = true;
+    _updateState(false, "Scanning…");
+
+    bool found = false;
+
+    _scanSub = FlutterBluePlus.scanResults.listen((results) {
+      for (var r in results) {
+        if (r.device.platformName == targetName) {
+          if (found) return;
+          found = true;
+
+          _scanSub?.cancel();
+          _scanSub = null;
+          FlutterBluePlus.stopScan();
+
+          _connect(r.device);
+          return;
         }
       }
     });
- 
-    // Discover services to find the HM-10 characteristic
-    await _discoverServices(device);
+
+    await FlutterBluePlus.startScan(timeout: const Duration(seconds: 8));
+
+    await Future.delayed(const Duration(seconds: 9));
+    if (!found && !isConnected) {
+      _updateState(false, "HMSoft not found");
+    }
   }
- 
-  Future<void> _discoverServices(BluetoothDevice device) async {
-    _setStatus("Discovering services…");
- 
+
+  Future<void> _connect(BluetoothDevice dev) async {
+    _updateState(false, "Connecting…");
+
+    await _connSub?.cancel();
+
     try {
-      final services = await device.discoverServices();
- 
-      for (final service in services) {
-        if (service.uuid.toString().toLowerCase() == _hm10ServiceUUID) {
-          for (final char in service.characteristics) {
-            if (char.uuid.toString().toLowerCase() == _hm10CharUUID) {
-              txCharacteristic = char;
- 
-              // Enable notifications so we can receive data from the car
-              if (char.properties.notify) {
-                await char.setNotifyValue(true);
-                char.onValueReceived.listen((value) {
-                  final received = utf8.decode(value);
-                  debugPrint("Received from HM-10: $received");
+      await dev.disconnect(); // defensive
+      await Future.delayed(const Duration(milliseconds: 400));
+
+      await dev.connect(timeout: const Duration(seconds: 12), license: License.free);
+    } catch (e) {
+      _updateState(false, "Connect failed");
+      return;
+    }
+
+    _connectedDevice = dev;
+
+    _connSub = dev.connectionState.listen((state) {
+      if (state == BluetoothConnectionState.disconnected) {
+        _updateState(false, "Disconnected");
+      }
+    });
+
+    await _discover(dev);
+  }
+
+  Future<void> _discover(BluetoothDevice dev) async {
+    _updateState(false, "Discovering…");
+
+    try {
+      var services = await dev.discoverServices();
+      for (var svc in services) {
+        if (svc.uuid.toString().toLowerCase() == serviceUUID) {
+          for (var c in svc.characteristics) {
+            if (c.uuid.toString().toLowerCase() == charUUID) {
+              _txCharacteristic = c;
+
+              if (c.properties.notify) {
+                await c.setNotifyValue(true);
+                c.onValueReceived.listen((bytes) {
+                  debugPrint("← ${utf8.decode(bytes)}");
                 });
               }
- 
-              setState(() {
-                isConnected = true;
-                isScanning = false;
-                status = "Connected to ${device.platformName}";
-              });
+
+              _updateState(true, "Connected to ${dev.platformName}");
               return;
             }
           }
         }
       }
- 
-      // Service/char not found – wrong firmware or UUID mismatch
-      _setStatus("HM-10 service not found on device");
-      await device.disconnect();
+      _updateState(false, "Service not found");
+      await dev.disconnect();
     } catch (e) {
-      _setStatus("Service discovery failed: $e");
-    }
-  }
-  Future<void> sendCommand(String command) async {
-    if (txCharacteristic == null || !isConnected) {
-      _setStatus("Not connected");
-      return;
-    }
-    try {
-      await txCharacteristic!.write(
-        utf8.encode(command),
-        withoutResponse: txCharacteristic!.properties.writeWithoutResponse,
-      );
-      debugPrint("Sent: $command");
-    } catch (e) {
-      _setStatus("Send failed: $e");
+      _updateState(false, "Discovery failed");
     }
   }
 
-//Increase decrease speed
-  Future<void> increaseSpeed() async {
-  await sendCommand("I");  
-  _setStatus("Speed increased");
-}
-
-  Future<void> decreaseSpeed() async {
-  await sendCommand("D");  
-  _setStatus("Speed decreased");
-}
- 
-  Future<void> disconnect() async {
-    await connectedDevice?.disconnect();
-    setState(() {
-      isConnected = false;
-      status = "Disconnected";
-      txCharacteristic = null;
-    });
+  void _updateState(bool connected, String msg) {
+    isConnected = connected;
+    isScanning = false;
+    status = msg;
+    notifyListeners(); // ← this is key – tells UI to rebuild
   }
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text("BLE Controller")),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(status),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: isConnected ? null : scanAndConnect,
-              child: Text(isConnected ? "Connected" : "Scan & Connect"),
-            ),
-            if (isConnected) ...[
-              const SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: increaseSpeed,
-                child: const Text("Increase Speed"),
-              ),
-              const SizedBox(height: 10),
-              ElevatedButton(
-                onPressed: decreaseSpeed,
-                child: const Text("Decrease Speed"),
-              ),
-              const SizedBox(height: 10),
-              ElevatedButton(
-                onPressed: disconnect,
-                child: const Text("Disconnect"),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
+  void dispose() {
+    _scanSub?.cancel();
+    _connSub?.cancel();
+    _connectedDevice?.disconnect();
+    super.dispose();
   }
 }

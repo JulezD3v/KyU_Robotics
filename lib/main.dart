@@ -3,10 +3,6 @@ import 'SplashScreen/splashscreen.dart';
 
 
 void main()  {
-  // var path = Directory.current.path;
-  // Hive
-  //   ..init(path)
-  //   ..registerAdapter(PersonAdapter());
   runApp(const MyApp());
 }
 
