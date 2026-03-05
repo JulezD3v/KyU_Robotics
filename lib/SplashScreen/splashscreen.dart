@@ -30,7 +30,7 @@ class _SplashscreenState extends State<Splashscreen>
       if (status == AnimationStatus.completed) {
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (_) => BleScreen()),
+          MaterialPageRoute(builder: (_) => Controller()),
         );
       }
     });

@@ -351,3 +351,61 @@ class _BleScreenState extends State<BleScreen> {
   }
 }
  
+
+             // Bottom Navigation
+              Container(
+                padding: const EdgeInsets.symmetric(vertical: 15),
+                decoration: const BoxDecoration(
+                  color: AppColors.bgColor,
+                  boxShadow: [
+                    BoxShadow(
+                        color: Colors.black12,
+                        offset: Offset(0, -4),
+                        blurRadius: 8)
+                  ],
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: const [
+                    _NavItem(icon: Icons.grid_view, label: "CONTROL", active: true),
+                    _NavItem(icon: Icons.bar_chart, label: "STATS"),
+                    CircleAvatar(
+                      radius: 28,
+                      backgroundColor: AppColors.primaryGreen,
+                      child: Icon(Icons.sports_esports, color: Colors.white),
+                    ),
+                    _NavItem(icon: Icons.history, label: "LOGS"),
+                    _NavItem(icon: Icons.settings, label: "CONFIG"),
+                  ],
+                ),
+              )
+
+
+class _NavItem extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool active;
+
+  const _NavItem({
+    required this.icon,
+    required this.label,
+    this.active = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Icon(icon, color: active ?  Color(0xFF117A65) : Colors.grey),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            color: active ?  Color(0xFF117A65) : Colors.grey,
+          ),
+        )
+      ],
+    );
+  }
+}
