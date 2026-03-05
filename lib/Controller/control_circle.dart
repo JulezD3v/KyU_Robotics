@@ -1,10 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '/Core/colors/colors.dart';
+import 'mycontroller.dart';
 import 'blecontroller_widget.dart';
 
 class DirectionalControl extends StatelessWidget {
-  const DirectionalControl({super.key});
+  final MyBleController controller;
+
+  const DirectionalControl({
+    super.key,
+    required this.controller,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -85,29 +91,20 @@ Positioned(
   }
 
  Widget _buildArrowButton(BuildContext context, IconData icon) {
-
-  final ble = Provider.of<MyBleController>(context, listen: false);
+  final controller = Provider.of<MyBleController>(context, listen: false);
+  //final ble = Provider.of<MyBleController>(context, listen: false);
 
   return GestureDetector(
     onTap: () {
-
-      if (icon == Icons.arrow_upward_rounded) {
-        ble.sendCommand("F"); // Forward
-      }
-
-      if (icon == Icons.arrow_downward_rounded) {
-        ble.sendCommand("B"); // Backward
-      }
-
-      if (icon == Icons.arrow_back_rounded) {
-        ble.sendCommand("L"); // Left
-      }
-
-      if (icon == Icons.arrow_forward_rounded) {
-        ble.sendCommand("R"); // Right
-      }
-
-    },
+  if (controller.isConnected) {
+    String cmd = '';
+    if (icon == Icons.arrow_upward_rounded)    cmd = 'F';
+    if (icon == Icons.arrow_downward_rounded)  cmd = 'B';
+    if (icon == Icons.arrow_back_rounded)      cmd = 'L';
+    if (icon == Icons.arrow_forward_rounded)   cmd = 'R';
+    controller.sendCommand(cmd);
+  }
+},
     child: Container(
       width: 56,
       height: 56,

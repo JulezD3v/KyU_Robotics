@@ -106,7 +106,7 @@ void initState() {
                 const SizedBox(height: 35),
           
                 // Controller
-               DirectionalControl(),
+               DirectionalControl(controller: _controller),
                
                 const SizedBox(height: 40),
           

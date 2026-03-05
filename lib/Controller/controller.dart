@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
+
 class BleScreen extends StatefulWidget {
   const BleScreen({super.key});
 
@@ -14,8 +15,8 @@ class _BleScreenState extends State<BleScreen> {
   String connectionStatus = 'Not Connected';
 
   // HM-10 UUIDs
-  final Guid serviceUUID = Guid('0000FFE0-0000-1000-8000-00805F9B34FB');
-  final Guid characteristicUUID = Guid('0000FFE1-0000-1000-8000-00805F9B34FB');
+  final Guid serviceUUID = Guid('ffe0');
+  final Guid characteristicUUID = Guid('ffe1');
 
   void _connect() async {
     setState(() => connectionStatus = 'Scanning...');
