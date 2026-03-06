@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:kyu_robotics/Core/widgets/dropdown_widget.dart';
 import '/Core/colors/colors.dart';
 import '/Controller/blecontroller_widget.dart';
 import '/Controller/control_circle.dart';
@@ -53,7 +54,7 @@ class _ControllerState extends State<Controller> {
                       children: [
                         const Icon(Icons.arrow_back_ios_new),
                         const Text(
-                          "KyU Robotics Team",
+                          "KyU Robotics Club",
                           style: TextStyle(
                             fontSize: 22,
                             fontWeight: FontWeight.w600,
@@ -84,6 +85,8 @@ class _ControllerState extends State<Controller> {
                         Text(
                           _controller.isConnected
                               ? "BLUETOOTH CONNECTED"
+                              : _controller.isScanning
+                              ? "SCANNING..."
                               : "CONNECT TO ROBOT",
                           style: TextStyle(
                             color: _controller.isConnected
@@ -94,11 +97,17 @@ class _ControllerState extends State<Controller> {
                             letterSpacing: 2,
                           ),
                         ),
+                        
                         SizedBox(height: 3),
                         Text(
                           _controller.isConnected
                               ? _controller.status
-                              : "Tap to connect",
+                              : _controller.isScanning
+                              ? _controller
+                                    .status // "Scanning…" / "Connecting…" / "Discovering…"
+                              : _controller.status == "Not Connected"
+                              ? "Tap to connect"
+                              : _controller.status,
                         ),
                       ],
                     ),
@@ -186,6 +195,7 @@ class _ControllerState extends State<Controller> {
                                 : () {},
                           ),
                         ),
+                        ModeSelectorDropdown(controller: _controller)
                       ],
                     ),
                   ),

@@ -24,6 +24,7 @@
 #include <Wire.h>
 #include <Adafruit_PWMServoDriver.h>
 #include <Servo.h>
+#include<Sentry.h>
 
 // ── PCA9685 ───────────────────────────────────────────────────────
 Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver(0x47);

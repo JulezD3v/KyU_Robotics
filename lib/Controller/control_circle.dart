@@ -74,11 +74,15 @@ class DirectionalControl extends StatelessWidget {
             child: _buildArrowButton(Icons.arrow_forward_rounded),
           ),
           // 4. Center icon (not a button)
-          Icon(
-            Icons.open_with_rounded,
-            size: 48,
-            color: AppColors.primaryGreen,
-          ),
+          // 4. Center icon (not a button)
+          GestureDetector(
+  onTap: () => controller.sendCommand("S"),
+  child: const Icon(
+    Icons.open_with_rounded,
+    size: 48,
+    color: AppColors.primaryGreen,
+  ),
+),
         ],
       ),
     );
@@ -89,10 +93,11 @@ class DirectionalControl extends StatelessWidget {
       onTap: () {
         if (controller.isConnected) {
           String cmd = '';
-          if (icon == Icons.arrow_upward_rounded)    cmd = 'F';
-          if (icon == Icons.arrow_downward_rounded)  cmd = 'B';
-          if (icon == Icons.arrow_back_rounded)      cmd = 'L';
-          if (icon == Icons.arrow_forward_rounded)   cmd = 'R';
+          if (icon == Icons.keyboard_arrow_up_rounded)    cmd = 'F';
+          if (icon == Icons.keyboard_arrow_down_rounded)  cmd = 'B';
+          if (icon == Icons.keyboard_arrow_left_rounded)      cmd = 'L';
+          if (icon == Icons.keyboard_arrow_right_rounded)   cmd = 'R';
+          //if(icon== Icons.circle) cmd = "S";
           controller.sendCommand(cmd);
         }
       },

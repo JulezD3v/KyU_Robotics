@@ -10,6 +10,7 @@ class MyBleController extends ChangeNotifier {
   String status = "Not Connected";
   bool isScanning = false;
   bool isConnected = false;
+  int currentMode = 0; // ← ADD THIS: tracks 0=BLE, 1=CARD, 2=LINE, 3=FACE
 
   // ── Private BLE fields ──
   BluetoothDevice? _connectedDevice;
@@ -28,10 +29,16 @@ class MyBleController extends ChangeNotifier {
 
   Future<void> disconnect() async {
     await _connectedDevice?.disconnect();
-    _updateState(false, "Disconnected");
+    void _updateState(bool connected, String msg) {
+    isConnected = connected;
+    isScanning = false;
+    status = msg;
+    if (!connected) currentMode = 0; // ← ADD: reset to BLE on disconnect
+    notifyListeners();
+  }
   }
 
-  Future<void> sendCommand(String cmd) async {
+ Future<void> sendCommand(String cmd) async {
     if (_txCharacteristic == null || !isConnected) {
       _updateState(isConnected, "Not connected");
       return;
@@ -41,6 +48,14 @@ class MyBleController extends ChangeNotifier {
         utf8.encode(cmd),
         withoutResponse: _txCharacteristic!.properties.writeWithoutResponse,
       );
+      // ── ADD: sync local mode tracking ──
+      if (cmd == 'M') {
+        currentMode = (currentMode + 1) % 4;
+        notifyListeners();
+      } else if (['0', '1', '2', '3'].contains(cmd)) {
+        currentMode = int.parse(cmd);
+        notifyListeners();
+      }
       debugPrint("Sent → $cmd");
     } catch (e) {
       debugPrint("Send error: $e");
@@ -69,6 +84,20 @@ class MyBleController extends ChangeNotifier {
     return statuses.values.every((s) => s.isGranted);
   }
 
+void updateState(bool connected, String msg) {
+  isConnected = connected;
+  isScanning = false;
+  status = msg;
+  notifyListeners();
+
+  // If it's a failure message, reset status back to idle after 3 seconds
+  if (!connected && msg != "Disconnected" && msg != "Not Connected") {
+    Future.delayed(const Duration(seconds: 3), () {
+      status = "Not Connected";
+      notifyListeners();
+    });
+  }
+}
   Future<void> scanAndConnect() async {
     if (!await _requestPermissions()) {
       _updateState(false, "Permissions denied");
@@ -114,6 +143,25 @@ class MyBleController extends ChangeNotifier {
     }
   }
 
+/// Switching Camera Mode 
+
+ Future<void> switchMode(int index) async {
+    await sendCommand(index.toString()); // sends '0','1','2','3'
+    currentMode = index;
+    notifyListeners();
+  }
+
+  Future<void> nextMode() async {
+    await sendCommand("M");
+    currentMode = (currentMode + 1) % 4;
+    notifyListeners();
+  }
+
+  // Mode name helper for UI labels
+  String get currentModeName {
+    const names = ["BLE Manual", "Card Detection", "Line Following", "Face Tracking"];
+    return names[currentMode];
+  }
   Future<void> _connect(BluetoothDevice dev) async {
     _updateState(false, "Connecting…");
 

@@ -20,7 +20,7 @@ class ActionCard extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(16),
         decoration: softBox(),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
