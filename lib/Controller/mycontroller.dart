@@ -195,10 +195,14 @@ class _ControllerState extends State<Controller> {
                                 : () {},
                           ),
                         ),
-                        ModeSelectorDropdown(controller: _controller)
                       ],
                     ),
                   ),
+                  const SizedBox(height: 16),
+                   SizedBox(
+                          width: 200, // give dropdown a fixed width
+                          child: ModeSelectorDropdown(controller: _controller),
+                        ),
                   const SizedBox(height: 20),
                   Image.asset(
                     "assets/schoolLogo.png",

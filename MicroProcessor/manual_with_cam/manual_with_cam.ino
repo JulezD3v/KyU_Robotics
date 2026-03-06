@@ -13,7 +13,7 @@
  *    0  BLE       Manual Flutter control
  *    1  CARD      Sentry2 card detection
  *    2  LINE      IR line following
- *    3  FACE      Sentry2 face tracking
+ *    3  FACE      Sentry2 face following (person tracking)
  *
  *  MODE SWITCHING (via BLE)
  *    'M'        Cycle to next mode
@@ -37,14 +37,17 @@
  *
  * ──────────────────────────────────────────────────────────────
  *  TUNING CONSTANTS
- *    S_STEP_BLE   5    degrees per L/R trim tap
- *    S_MAX_L      45   left servo limit
- *    S_MAX_R      135  right servo limit
- *    RAMP_STEP    50   speed ramp per 40ms tick
- *    DUR_LEFT     1800 card-mode left turn duration (ms)
- *    DUR_RIGHT    1800 card-mode right turn duration (ms)
- *    DUR_AROUND   3500 card-mode U-turn duration (ms)
- *    FACE_KP      2.0  face tracking proportional gain
+ *    S_STEP_BLE    5     degrees per L/R trim tap
+ *    S_MAX_L       45    left servo limit
+ *    S_MAX_R       135   right servo limit
+ *    RAMP_STEP     50    speed ramp per 40ms tick
+ *    DUR_LEFT      1800  card-mode left turn duration (ms)
+ *    DUR_RIGHT     1800  card-mode right turn duration (ms)
+ *    DUR_AROUND    3500  card-mode U-turn duration (ms)
+ *    FACE_KP       2.0   face steering proportional gain
+ *    FACE_DEAD_ZONE 8    ±units from centre before steering activates
+ *    FACE_CLOSE_H  55    height % above this = too close → stop
+ *    FACE_FAR_H    15    height % below this = too far  → speed up
  * ============================================================
  */
 
@@ -121,7 +124,7 @@ const ModeEntry MODES[] = {
   { "BLE Manual",      initBLE,  tickBLE  },   // index 0
   { "Card Detection",  initCard, tickCard },   // index 1
   { "Line Following",  initLine, tickLine },   // index 2
-  { "Face Tracking",   initFace, tickFace },   // index 3
+  { "Face Following",  initFace, tickFace },   // index 3
 };
 const int MODE_COUNT = sizeof(MODES) / sizeof(MODES[0]);
 
@@ -319,11 +322,11 @@ void tickCard() {
 
   // Map label to targets
   switch (cardLastLabel) {
-    case CARD_STOP:    target_angle = S_CENTRE; target_speed = 0;          break;
+    case CARD_STOP:    target_angle = S_CENTRE; target_speed = 0;           break;
     case CARD_FORWARD: target_angle = S_CENTRE; target_speed = normalSpeed; break;
-    case CARD_SPD40:   target_angle = S_CENTRE; target_speed = SPD_40;     break;
-    case CARD_SPD60:   target_angle = S_CENTRE; target_speed = SPD_60;     break;
-    case CARD_SPD80:   target_angle = S_CENTRE; target_speed = SPD_80;     break;
+    case CARD_SPD40:   target_angle = S_CENTRE; target_speed = SPD_40;      break;
+    case CARD_SPD60:   target_angle = S_CENTRE; target_speed = SPD_60;      break;
+    case CARD_SPD80:   target_angle = S_CENTRE; target_speed = SPD_80;      break;
     case CARD_LEFT:
       target_angle = 60; target_speed = normalSpeed;
       if (!cardInTurn) { cardInTurn = true; cardTurnStart = millis(); }
@@ -377,8 +380,8 @@ void initLine() {
   pinMode(IR_MIDDLE, INPUT);
   pinMode(IR_RIGHT,  INPUT);
   steerCentre();
-  driveState   = FWD;
-  target_speed = SPD_60;   // Moderate speed for reliable sensing
+  driveState    = FWD;
+  target_speed  = SPD_60;   // Moderate speed for reliable sensing
   current_speed = SPD_60;
   Serial.println("Line: Following...");
 }
@@ -421,63 +424,110 @@ void tickLine() {
 
 
 // ══════════════════════════════════════════════════════════════════
-//  MODE 3 — SENTRY2 FACE TRACKING
-//  Sentry2 returns face X position (0–100, 50=centre)
-//  Car steers toward the face and drives forward if face is large
-//  (large bounding box = face is close = stop or back up)
+//  MODE 3 — SENTRY2 FACE FOLLOWING
+//
+//  How it works:
+//    • Sentry2 returns the face bounding box every tick:
+//        kXValue      — horizontal centre, 0 (left) to 100 (right), 50 = centred
+//        kYValue      — vertical centre  (unused for drive, logged only)
+//        kWidthValue  — box width  as % of frame
+//        kHeightValue — box height as % of frame  ← used as distance proxy
+//
+//    • STEERING  — proportional controller on X error
+//        error = faceX − 50
+//        If |error| > FACE_DEAD_ZONE → steerOffset = error × FACE_KP
+//        Servo target = S_CENTRE + steerOffset  (clamped to S_MAX_L … S_MAX_R)
+//
+//    • SPEED  — 3-zone distance control using face height %
+//        faceH > FACE_CLOSE_H  →  STOP      (person is too close)
+//        faceH < FACE_FAR_H    →  SPD_NORMAL (person is far, chase)
+//        otherwise             →  SPD_60 straight / SPD_40 while turning
+//
+//    • NO FACE DETECTED
+//        Car halts and holds its last servo angle so it keeps "looking"
+//        in the direction the person was last seen.
+//
+//  TUNING
+//    FACE_KP        Increase for snappier steering; decrease if oscillating
+//    FACE_DEAD_ZONE Increase if car hunts left/right when roughly centred
+//    FACE_CLOSE_H   Decrease if car stops too early (person still far away)
+//    FACE_FAR_H     Increase if car is slow to chase a retreating person
 // ══════════════════════════════════════════════════════════════════
-#define FACE_KP          2.0f   // Proportional steering gain — increase for snappier tracking
-#define FACE_DEAD_ZONE   8      // ±px from centre before steering activates
-#define FACE_CLOSE_SIZE  60     // Bounding box height % — above this = too close, stop
-#define FACE_LOST_SPEED  0      // Speed when no face detected
+
+#define FACE_KP         2.0f   // Proportional steering gain
+#define FACE_DEAD_ZONE  8      // ±units from centre before steering activates
+#define FACE_CLOSE_H    55     // Height % above this = too close → stop
+#define FACE_FAR_H      15     // Height % below this = too far  → speed up
 
 void initFace() {
   sengo2.VisionBegin(Sengo2::kVisionFace);
   steerCentre();
   target_speed  = 0;
   current_speed = 0;
-  Serial.println("Face: Scanning...");
+  driveState    = FWD;
+  Serial.println("Face: Scanning for person...");
 }
 
 void tickFace() {
   int numFaces = sengo2.GetValue(Sengo2::kVisionFace, kStatus);
 
+  // ── No face detected ────────────────────────────────────────────
+  // Stop driving but hold last servo angle — keeps car "looking" toward
+  // where the person was last seen so it can re-acquire quickly.
   if (numFaces == 0) {
-    // No face — slow to a stop, hold last steer angle (keeps scanning direction)
-    target_speed = FACE_LOST_SPEED;
+    target_speed = 0;
+    driveState   = STOPPED;
     rampSpeed();
     applyDifferential(current_speed);
+    Serial.println("Face: none");
     return;
   }
 
-  // Read face bounding box from Sentry2
-  // kXValue = centre X (0–100), kHValue = box height (0–100)
-  int faceX = sengo2.GetValue(Sengo2::kVisionFace, kXValue, 1);  // 0–100
-  int faceH = sengo2.GetValue(Sengo2::kVisionFace, kYValue, 1);  // 0–100 (size proxy)
+  // ── Read bounding box of the first (closest/largest) face ───────
+  int faceX = sengo2.GetValue(Sengo2::kVisionFace, kXValue,     1); // 0–100
+  int faceY = sengo2.GetValue(Sengo2::kVisionFace, kYValue,     1); // 0–100 (logged only)
+  int faceW = sengo2.GetValue(Sengo2::kVisionFace, kWidthValue, 1); // 0–100
+  int faceH = sengo2.GetValue(Sengo2::kVisionFace, kHeightValue,1); // 0–100 ← distance proxy
 
-  Serial.print("FaceX="); Serial.print(faceX);
-  Serial.print(" FaceH="); Serial.println(faceH);
+  Serial.print("X:"); Serial.print(faceX);
+  Serial.print(" Y:"); Serial.print(faceY);
+  Serial.print(" W:"); Serial.print(faceW);
+  Serial.print(" H:"); Serial.println(faceH);
 
-  // ── Steering: proportional to horizontal error ────────────────
-  // faceX=50 means face is centred → no steer needed
-  int error = faceX - 50;   // Negative = face left of centre, positive = face right
+  // ── Steering — proportional to horizontal error ─────────────────
+  // faceX = 50 → face is centred, error = 0
+  // faceX < 50 → face is left  → negative error → steer left  (angle < 90)
+  // faceX > 50 → face is right → positive error → steer right (angle > 90)
+  int error = faceX - 50;
 
   if (abs(error) > FACE_DEAD_ZONE) {
-    // Map error (−50 to +50) to servo nudge around centre
-    // FACE_KP scales how aggressively we steer
     float steerOffset = error * FACE_KP;
     target_angle = constrain((int)(S_CENTRE + steerOffset), S_MAX_L, S_MAX_R);
   } else {
     target_angle = S_CENTRE;   // Within dead zone — go straight
   }
 
-  // ── Speed: stop/back if face is too close ─────────────────────
-  if (faceH > FACE_CLOSE_SIZE) {
-    target_speed = 0;                   // Too close — stop
-  } else if (abs(error) < FACE_DEAD_ZONE) {
-    target_speed = SPD_40;              // Centred and not too close — creep forward
+  // ── Speed — 3-zone distance control ─────────────────────────────
+  if (faceH > FACE_CLOSE_H) {
+    // Person is very close — stop to avoid collision
+    target_speed = 0;
+    driveState   = STOPPED;
+    Serial.println("Face: TOO CLOSE — stop");
+
+  } else if (faceH < FACE_FAR_H) {
+    // Person is far away — drive faster to catch up
+    target_speed = SPD_NORMAL;
+    driveState   = FWD;
+    Serial.println("Face: FAR — chasing");
+
   } else {
-    target_speed = SPD_40 / 2;          // Turning — move slower
+    // Good following distancew
+    driveState = FWD;
+    if (abs(error) < FACE_DEAD_ZONE) {
+      target_speed = SPD_60;   // Centred — normal follow cruise
+    } else {
+      target_speed = SPD_40;   // Turning — slower for stability
+    }
   }
 
   rampServo();
@@ -499,10 +549,10 @@ void setup() {
 
   // Sentry2 (shared by card + face modes)
   Wire.begin();
-  while (SENTRY_OK != sengo2.begin(&Wire)) {
-    Serial.println("Waiting for Sentry2...");
-    delay(1000);
-  }
+//  while (SENTRY_OK != sengo2.begin(&Wire)) {
+//    Serial.println("Waiting for Sentry2...");
+//    delay(1000);
+//  }
   Serial.println("Sentry2 OK");
 
   // Servo home
@@ -538,8 +588,8 @@ void loop() {
 
     // Emergency stop — always honoured
     if (c == 'S') {
-      driveState   = STOPPED;
-      target_speed = 0;
+      driveState    = STOPPED;
+      target_speed  = 0;
       current_speed = 0;
       rearStop();
       steerCentre();
@@ -572,3 +622,4 @@ void loop() {
 
   delay(40);   // ~25 Hz loop rate
 }
+

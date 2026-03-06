@@ -36,6 +36,7 @@ class ActionCard extends StatelessWidget {
                 fontSize: 18,
                 color: highlight ? const Color(0xFF117A65) : null,
               ),
+              overflow: TextOverflow.fade,
             ),
           ],
         ),
