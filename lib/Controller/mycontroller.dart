@@ -6,7 +6,11 @@ import '/Controller/control_circle.dart';
 import '/Core/widgets/softbutton.dart';
 import '/Core/widgets/togglecard.dart';
 import '/Core/widgets/actioncard.dart';
-
+import'/Core/widgets/drivebutton.dart';
+enum DriveType {
+  twoWheel,
+  threeWheel,
+}
 class Controller extends StatefulWidget {
   const Controller({super.key});
 
@@ -20,7 +24,9 @@ class _ControllerState extends State<Controller> {
   bool startHighlight = false;
   bool stopHighlight = false;
   bool isConnected = false;
+  int selectedDrive = 2;
   final MyBleController _controller = MyBleController();
+ 
   @override
   void initState() {
     super.initState();
@@ -112,8 +118,42 @@ class _ControllerState extends State<Controller> {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 35),
+                  const SizedBox(height: 18),
 
+        Padding(
+          padding: EdgeInsets.only(left: 40.0),
+          child: Row(
+            children: [
+          
+              DriveButton(
+                label: "2-Wheel",
+                icon: Icons.directions_bike,
+                isActive: selectedDrive == 2,
+                onTap: () {
+                  setState(() {
+                    selectedDrive = 2;
+                  });
+                },
+              ),
+          
+              const SizedBox(width: 12),
+          
+              DriveButton(
+                label: "3-Wheel",
+                icon: Icons.electric_rickshaw,
+                isActive: selectedDrive == 3,
+                onTap: () {
+                  setState(() {
+                    selectedDrive = 3;
+                  });
+                },
+              ),
+          
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 30),
                   // Controller
                   DirectionalControl(controller: _controller),
 

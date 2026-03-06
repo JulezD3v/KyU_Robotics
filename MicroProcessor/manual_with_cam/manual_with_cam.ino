@@ -1,4 +1,4 @@
-/*
+/* THIS CODDE HAS THREE WHEEL AND TWO WHEEL 
  * ============================================================
  *  2WD Robot Car — Multi-Mode Firmware
  *  Architecture: Mode Table (function pointer dispatch)
@@ -99,10 +99,17 @@ int current_speed = 0;
 int target_speed  = 0;
 
 // ──────────────────────────────────────────────────────────────────
-//  DRIVE STATE
+//  ENUMS
 // ──────────────────────────────────────────────────────────────────
 enum DriveState { STOPPED, FWD, REV };
 DriveState driveState = STOPPED;
+//added drives
+enum DriveConfig {
+  DRIVE_2WD,
+  DRIVE_3WD
+};
+
+DriveConfig driveConfig = DRIVE_2WD;
 
 // ──────────────────────────────────────────────────────────────────
 //  MODE TABLE
@@ -203,11 +210,21 @@ void rampSpeed() {
   }
 }
 
-// Apply equal speed to both motors in current driveState direction
+// Apply equal speed to both motors in current driveState direction 2wheel drive 3 wheel drive change possible 
 void applyDrive(int spd) {
-  if      (driveState == FWD) setMotors(DIR_FWD, DIR_FWD, spd, spd);
-  else if (driveState == REV) setMotors(DIR_REV, DIR_REV, spd, spd);
-  else                        rearStop();
+
+  if (driveConfig == DRIVE_2WD) {
+    if      (driveState == FWD) setMotors(DIR_FWD, DIR_FWD, spd, spd);
+    else if (driveState == REV) setMotors(DIR_REV, DIR_REV, spd, spd);
+    else rearStop();
+  }
+
+  else if (driveConfig == DRIVE_3WD) {
+    if      (driveState == FWD) setMotors(DIR_FWD, DIR_FWD, spd, 0);
+    else if (driveState == REV) setMotors(DIR_REV, DIR_REV, spd, 0);
+    else rearStop();
+  }
+
 }
 
 // Differential drive with servo angle bias (used by camera + face modes)
@@ -577,16 +594,33 @@ void loop() {
 
   // ── BLE serial handler ─────────────────────────────────────────
   if (Serial.available() > 0) {
+
     char c = Serial.read();
     Serial.println(c);
+
+    // ── Switch drive configuration ───────────────────────────────
+    if (c == '2') {
+      driveConfig = DRIVE_2WD;
+      Serial.println("Drive Mode: 2WD");
+      return;
+    }
+
+    if (c == '3') {
+      driveConfig = DRIVE_3WD;
+      Serial.println("Drive Mode: 3WD");
+      return;
+    }
 
     // ── Global commands — work in ALL modes ──────────────────────
     if (c == 'M') { nextMode(); return; }
 
     // Jump directly to a mode by number
-    if (c >= '0' && c < ('0' + MODE_COUNT)) { switchMode(c - '0'); return; }
+    if (c >= '0' && c < ('0' + MODE_COUNT)) { 
+      switchMode(c - '0'); 
+      return; 
+    }
 
-    // Emergency stop — always honoured
+    // Emergency stop
     if (c == 'S') {
       driveState    = STOPPED;
       target_speed  = 0;
@@ -597,29 +631,26 @@ void loop() {
       return;
     }
 
-    // ── BLE mode commands ─────────────────────────────────────────
+    // ── BLE mode commands ───────────────────────────────────────
     if (currentMode == 0) {
       switch (c) {
         case 'F': bleCmdForward();    break;
         case 'B': bleCmdBackward();   break;
-        case 'L': steerNudgeLeft();   break;   // Trim — 5° per tap
-        case 'R': steerNudgeRight();  break;   // Trim — 5° per tap
-        case 'l': bleCmdDriveLeft();  break;   // Drive — full lock left + forward
-        case 'r': bleCmdDriveRight(); break;   // Drive — full lock right + forward
+        case 'L': steerNudgeLeft();   break;
+        case 'R': steerNudgeRight();  break;
+        case 'l': bleCmdDriveLeft();  break;
+        case 'r': bleCmdDriveRight(); break;
         case 'C': bleCmdCentre();     break;
         case 'U': bleCmdUTurn();      break;
         case 'a': bleCmdSpeedUp();    break;
         case 'd': bleCmdSpeedDown();  break;
-        default:  break;
+        default: break;
       }
     }
-    // Other modes ignore unrecognised BLE chars — only global commands above apply
   }
 
-  // ── Dispatch to active mode's tick function ────────────────────
-  // This is the entire mode-switch logic — one line, no if/else chains
+  // ── Run current mode ───────────────────────────────────────────
   MODES[currentMode].tick();
 
-  delay(40);   // ~25 Hz loop rate
+  delay(40);
 }
-
