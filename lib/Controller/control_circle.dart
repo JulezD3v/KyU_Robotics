@@ -5,6 +5,7 @@ import 'blecontroller_widget.dart';
 class DirectionalControl extends StatelessWidget {
   final MyBleController controller;
 
+
   const DirectionalControl({
     super.key,
     required this.controller,
@@ -75,15 +76,42 @@ class DirectionalControl extends StatelessWidget {
           ),
           // 4. Center icon (not a button)
           // 4. Center icon (not a button)
-          GestureDetector(
-  onTap: () => controller.sendCommand("S"),
-  child: const Icon(
-    Icons.open_with_rounded,
-    size: 48,
-    color: AppColors.primaryGreen,
-  ),
-),
-        ],
+         GestureDetector(
+  onTap: () {
+              if (controller.isConnected) {
+                controller.sendCommand('S');
+                // Optional: visual feedback
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text("Emergency STOP sent")),
+                );
+              }
+            },
+            child: Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: AppColors.bgColor,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.white.withOpacity(0.7),
+                    offset: Offset(-5, -5),
+                    blurRadius: 10,
+                  ),
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.18),
+                    offset: Offset(5, 5),
+                    blurRadius: 10,
+                  ),
+                ],
+              ),
+              child: Icon(
+                Icons.stop_rounded,
+                size: 48,
+                color: controller.isConnected ? Colors.redAccent : Colors.grey,
+              ),
+            ),
+), ],
       ),
     );
   }

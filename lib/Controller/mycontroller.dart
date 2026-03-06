@@ -97,7 +97,7 @@ class _ControllerState extends State<Controller> {
                             letterSpacing: 2,
                           ),
                         ),
-                        
+
                         SizedBox(height: 3),
                         Text(
                           _controller.isConnected
@@ -132,12 +132,17 @@ class _ControllerState extends State<Controller> {
                             onTap: () {
                               setState(() {
                                 stopActive = !stopActive;
-
-                                // If Stop is pressed, Camera should remain ON
-                                if (stopActive) {
-                                  startActive = true;
-                                }
                               });
+
+                              if (stopActive) {
+                                // Turn ON → switch to Camera mode (index 3)
+                                _controller.sendCommand('3'); // direct jump
+                                // OR: controller.switchMode(3);       // if you exposed switchMode in controller
+                              } else {
+                                // Turn OFF → go back to BLE Manual (mode 0)
+                                _controller.sendCommand('0');
+                                // OR remember previous mode if you want more advanced logic
+                              }
                             },
                           ),
                         ),
@@ -199,10 +204,10 @@ class _ControllerState extends State<Controller> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                   SizedBox(
-                          width: 200, // give dropdown a fixed width
-                          child: ModeSelectorDropdown(controller: _controller),
-                        ),
+                  SizedBox(
+                    width: 200, // give dropdown a fixed width
+                    child: ModeSelectorDropdown(controller: _controller),
+                  ),
                   const SizedBox(height: 20),
                   Image.asset(
                     "assets/schoolLogo.png",
