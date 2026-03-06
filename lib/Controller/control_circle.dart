@@ -1,10 +1,10 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '/Core/colors/colors.dart';
 import 'blecontroller_widget.dart';
 
 class DirectionalControl extends StatelessWidget {
   final MyBleController controller;
-
 
   const DirectionalControl({
     super.key,
@@ -19,7 +19,7 @@ class DirectionalControl extends StatelessWidget {
       child: Stack(
         alignment: Alignment.center,
         children: [
-          // 1. Outer subtle ring (light blue-ish track)
+          // 1. Outer subtle ring (unchanged)
           Container(
             width: 250,
             height: 250,
@@ -33,7 +33,7 @@ class DirectionalControl extends StatelessWidget {
             ),
           ),
 
-          // 2. Main neumorphic circle
+          // 2. Main neumorphic circle (unchanged)
           Container(
             width: 220,
             height: 220,
@@ -57,7 +57,7 @@ class DirectionalControl extends StatelessWidget {
             ),
           ),
 
-          // 3. Four arrow buttons around the edge
+          // 3. Four arrow buttons (now with tap + long-press)
           Positioned(
             top: 20,
             child: _buildArrowButton(Icons.arrow_upward_rounded),
@@ -74,15 +74,17 @@ class DirectionalControl extends StatelessWidget {
             right: 20,
             child: _buildArrowButton(Icons.arrow_forward_rounded),
           ),
-          // 4. Center icon (not a button)
-          // 4. Center icon (not a button)
-         GestureDetector(
-  onTap: () {
+
+          // 4. Center emergency STOP button (always active)
+          GestureDetector(
+            onTap: () {
               if (controller.isConnected) {
                 controller.sendCommand('S');
-                // Optional: visual feedback
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("Emergency STOP sent")),
+                  const SnackBar(
+                    content: Text("Emergency STOP sent"),
+                    duration: Duration(seconds: 1),
+                  ),
                 );
               }
             },
@@ -95,12 +97,12 @@ class DirectionalControl extends StatelessWidget {
                 boxShadow: [
                   BoxShadow(
                     color: Colors.white.withOpacity(0.7),
-                    offset: Offset(-5, -5),
+                    offset: const Offset(-5, -5),
                     blurRadius: 10,
                   ),
                   BoxShadow(
                     color: Colors.black.withOpacity(0.18),
-                    offset: Offset(5, 5),
+                    offset: const Offset(5, 5),
                     blurRadius: 10,
                   ),
                 ],
@@ -111,22 +113,57 @@ class DirectionalControl extends StatelessWidget {
                 color: controller.isConnected ? Colors.redAccent : Colors.grey,
               ),
             ),
-), ],
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildArrowButton(IconData icon) {
+    String command = 'S'; // fallback
+
+    if (icon == Icons.arrow_upward_rounded)    command = 'F';
+    if (icon == Icons.arrow_downward_rounded)  command = 'B';
+    if (icon == Icons.arrow_back_rounded)      command = 'L';
+    if (icon == Icons.arrow_forward_rounded)   command = 'R';
+
+    Timer? holdTimer;
+
+    void startContinuous() {
+      if (!controller.isConnected) return;
+
+      // Send one command immediately on press
+      controller.sendCommand(command);
+
+      // Then repeat every ~180 ms for continuous movement
+      holdTimer = Timer.periodic(const Duration(milliseconds: 180), (timer) {
+        if (controller.isConnected) {
+          controller.sendCommand(command);
+        } else {
+          timer.cancel();
+        }
+      });
+    }
+
+    void stopContinuous() {
+      holdTimer?.cancel();
+      holdTimer = null;
+
+      // Optional: send explicit stop when finger lifts
+      // Uncomment if you want car to stop immediately on release
+      // controller.sendCommand('S');
+    }
+
     return GestureDetector(
+      // Long press → continuous
+      onTapDown: (_) => startContinuous(),
+      onTapUp: (_) => stopContinuous(),
+      onTapCancel: () => stopContinuous(),
+
+      // Short tap → single command (brief movement)
       onTap: () {
         if (controller.isConnected) {
-          String cmd = '';
-          if (icon == Icons.keyboard_arrow_up_rounded)    cmd = 'F';
-          if (icon == Icons.keyboard_arrow_down_rounded)  cmd = 'B';
-          if (icon == Icons.keyboard_arrow_left_rounded)      cmd = 'L';
-          if (icon == Icons.keyboard_arrow_right_rounded)   cmd = 'R';
-          //if(icon== Icons.circle) cmd = "S";
-          controller.sendCommand(cmd);
+          controller.sendCommand(command);
         }
       },
       child: Container(
@@ -151,7 +188,9 @@ class DirectionalControl extends StatelessWidget {
         child: Icon(
           icon,
           size: 32,
-          color: AppColors.primaryGreen.withOpacity(0.9),
+          color: controller.isConnected
+              ? AppColors.primaryGreen.withOpacity(0.9)
+              : Colors.grey.withOpacity(0.6),
         ),
       ),
     );

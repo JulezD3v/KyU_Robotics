@@ -29,13 +29,7 @@ class MyBleController extends ChangeNotifier {
 
   Future<void> disconnect() async {
     await _connectedDevice?.disconnect();
-    void _updateState(bool connected, String msg) {
-    isConnected = connected;
-    isScanning = false;
-    status = msg;
-    if (!connected) currentMode = 0; // ← ADD: reset to BLE on disconnect
-    notifyListeners();
-  }
+    _updateState(false, "Disconnected");
   }
 
  Future<void> sendCommand(String cmd) async {
@@ -63,15 +57,14 @@ class MyBleController extends ChangeNotifier {
   }
 
   Future<void> increaseSpeed() async {
-    await sendCommand("I");
-    _updateState(isConnected, "Speed ↑");
-  }
+  await sendCommand("a"); 
+  _updateState(isConnected, "Speed ↑");
+}
 
-  Future<void> decreaseSpeed() async {
-    await sendCommand("D");
-    _updateState(isConnected, "Speed ↓");
-  }
-
+Future<void> decreaseSpeed() async {
+  await sendCommand("d");  
+  _updateState(isConnected, "Speed ↓");
+}
   // ── Internal logic (same as before, just cleaned a bit) ──
 
   Future<bool> _requestPermissions() async {
@@ -135,7 +128,7 @@ void updateState(bool connected, String msg) {
       }
     });
 
-    await FlutterBluePlus.startScan(timeout: const Duration(seconds: 8));
+    await FlutterBluePlus.startScan(timeout: const Duration(seconds: 15));
 
     await Future.delayed(const Duration(seconds: 9));
     if (!found && !isConnected) {

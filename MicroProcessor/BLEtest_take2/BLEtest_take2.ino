@@ -178,7 +178,7 @@ void loop() {
     switch (c) {
       case 'F': cmdForward();    break;
       case 'B': cmdBackward();   break;
-      case 'S': cmdStop();       break;
+       case 'S': cmdStop();       break;
       case 'L': cmdPivotLeft();  break;
       case 'R': cmdPivotRight(); break;
       case 'l': cmdCurveLeft();  break;

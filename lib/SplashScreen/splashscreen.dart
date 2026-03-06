@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:kyu_robotics/Controller/ble_tester.dart';
 import 'package:kyu_robotics/Controller/mycontroller.dart'; // assuming this is where BleScreen lives
 
 class Splashscreen extends StatefulWidget {
